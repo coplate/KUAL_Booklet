@@ -1,0 +1,10 @@
+build/
+bin/
+*.azw2
+KUALBooklet.jar
+dist/
+lib/Kindlet-1.*.jar
+lib/kaf.jar
+lib/utilities.jar
+.project
+build-local.properties

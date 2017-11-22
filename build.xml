@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="KUAL" default="dist">
+
+	<property file="build.properties"/>
+	<!-- local properties which are not committed to git. See build.properties for the keys which are expected to be found in there. -->
+	<property file="build-local.properties"/>
+
+	<path id="classpath.jdk14">
+		<fileset dir="${build.classpath.jdk14}" includes="**/*.jar"/>
+	</path>
+
+	<path id="classpath.lib">
+		<fileset dir="lib" includes="**/*.jar"/>
+	</path>
+
+	<target name="clean">
+		<delete dir="${build.dir}"/>
+	</target>
+
+	<target name="prepare">
+		<delete dir="${build.dir}"/>
+		<mkdir dir="${build.dir}"/>
+		<mkdir dir="dist"/>
+	</target>
+
+	<target name="compile" depends="prepare, strip-parser">
+		<javac source="1.4" target="1.4" includeantruntime="false" bootclasspathref="classpath.jdk14" classpathref="classpath.lib" srcdir="src" destdir="${build.dir}" debug="true" debuglevel="lines,vars,source">
+			<include name="**/*.java"/>
+		</javac>
+	</target>
+
+	<target name="build" depends="compile">
+		<echo level="info">Launching build targets</echo>
+		<antcall target="restore-parser"/>
+		<antcall target="build-kdk">
+			<param name="kdk-version" value="1.0"/>
+		</antcall>
+
+		<antcall target="build-kdk">
+			<param name="kdk-version" value="2.0"/>
+		</antcall>
+		<antcall target="build-booklet"/>
+	</target>
+
+	<target name="build-kdk" depends="compile, git.changelog">
+		<property name="file" value="${product.filename}-KDK-${kdk-version}.${product.extension}"/>
+		<delete file="${file}"/>
+		<jar destfile="${file}">
+			<manifest>
+				<attribute name="Implementation-Title" value="${product.name}"/>
+				<attribute name="Implementation-Version" value="${product.version}"/>
+				<attribute name="Implementation-Vendor" value="${product.vendor}"/>
+				<attribute name="Main-Class" value="${product.mainclass}"/>
+				<attribute name="Amazon-Cover-Image" value="${product.image}"/>
+				<attribute name="Extension-List" value="SDK"/>
+				<attribute name="SDK-Extension-Name" value="com.amazon.kindle.kindlet"/>
+				<attribute name="SDK-Specification-Version" value="${kdk-version}"/>
+
+				<attribute name="Toolbar-Mode" value="persistent"/>
+				<attribute name="Font-Size-Mode" value="point"/>
+
+			</manifest>
+
+			<!-- actual program logic files -->
+			<fileset dir="${build.dir}">
+				<include name="**/*.class"/>
+				<exclude name="**/KualBooklet*.class"/>
+			</fileset>
+
+			<!-- jailbreak frontend, required -->
+			<zipfileset src="lib/jailbreak.jar">
+				<include name="**/*.class"/>
+			</zipfileset>
+
+			<!-- resources -->
+			<fileset dir="src/">
+				<include name="**/resources/*"/>
+				<exclude name="**/resources/*.java"/>
+				<exclude name="**/resources/old"/>
+				<exclude name="**/resources/aloop"/>
+				<exclude name="**/resources/booklet"/>
+				<exclude name="**/resources/tool"/>
+				<exclude name="**/resources/dist"/>
+				<exclude name="**/resources/parse-commented.awk"/>
+				<exclude name="**/resources/parse-commented.awk.tpl"/>
+			</fileset>
+			<!-- "cover" icon -->
+			<fileset dir=".">
+				<include name="${product.image}"/>
+			</fileset>
+		</jar>
+		<signjar jar="${file}" keystore="${sign.keystore.file}" storepass="${sign.keystore.password}" alias="dk${sign.aliases}" sigalg="SHA1withDSA" digestalg="SHA1"/>
+		<signjar jar="${file}" keystore="${sign.keystore.file}" storepass="${sign.keystore.password}" alias="di${sign.aliases}" sigalg="SHA1withDSA" digestalg="SHA1"/>
+		<signjar jar="${file}" keystore="${sign.keystore.file}" storepass="${sign.keystore.password}" alias="dn${sign.aliases}" sigalg="SHA1withDSA" digestalg="SHA1"/>
+
+		<antcall target="restore-parser"/>
+	</target>
+
+	<target name="build-booklet" depends="compile, git.changelog">
+		<property name="file" value="${product.filename}Booklet.jar"/>
+		<delete file="${file}"/>
+		<jar destfile="${file}">
+			<manifest>
+				<attribute name="Main-Class" value="${product.bookletmainclass}"/>
+			</manifest>
+
+			<!-- actual program logic files -->
+			<fileset dir="${build.dir}">
+				<include name="**/*.class"/>
+				<exclude name="**/KualKindlet*.class"/>
+				<exclude name="**/LauncherKindletJailbreak.class"/>
+				<exclude name="**/ui/v1/Kual*.class"/>
+			</fileset>
+
+			<!-- resources -->
+			<fileset dir="src/">
+				<include name="**/resources/*"/>
+				<exclude name="**/resources/*.java"/>
+				<exclude name="**/resources/old"/>
+				<exclude name="**/resources/aloop"/>
+				<exclude name="**/resources/booklet"/>
+				<exclude name="**/resources/tool"/>
+				<exclude name="**/resources/dist"/>
+				<exclude name="**/resources/parse-commented.awk"/>
+				<exclude name="**/resources/parse-commented.awk.tpl"/>
+			</fileset>
+		</jar>
+
+		<antcall target="restore-parser"/>
+	</target>
+
+	<!-- Strip the parser -->
+	<target name="strip-parser" depends="inject-git.revision" description="Strip the parser">
+		<exec executable="src/com/mobileread/ixtab/kindlelauncher/resources/tool/stripit.sh" failifexecutionfails="true" failonerror="true" errorproperty=""/>
+		<echo level="info">Built stripped parser awk script</echo>
+	</target>
+
+	<target name="cleanup" description="Remove the files generated by the build system">
+		<delete file="src/com/mobileread/ixtab/kindlelauncher/resources/parse.awk"/>
+		<delete file="src/com/mobileread/ixtab/kindlelauncher/resources/dist/ChangeLog.txt"/>
+	</target>
+
+	<!-- Get a pretty git version :). Cf. http://stackoverflow.com/questions/2974106 -->
+	<available file=".git" type="dir" property="git.present"/>
+
+	<target name="git.revision" description="Store git revision in ${repository.version}" if="git.present">
+		<exec executable="git" outputproperty="git.revision" failifexecutionfails="false">
+			<arg value="describe"/>
+			<arg value="--tags"/>
+			<arg value="--always"/>
+			<arg value="HEAD"/>
+			<!-- Replace the first dash by a dot -->
+			<redirector>
+				<outputfilterchain>
+					<tokenfilter>
+						<replaceregex pattern="-" replace="."/>
+					</tokenfilter>
+				</outputfilterchain>
+			</redirector>
+		</exec>
+		<condition property="repository.version" value="${git.revision}" else="unknown">
+			<and>
+				<isset property="git.revision"/>
+				<length string="${git.revision}" trim="yes" length="0" when="greater"/>
+			</and>
+		</condition>
+		<echo level="info">Got git revision</echo>
+	</target>
+
+	<!-- And the date of the last commit in our usual format... -->
+	<target name="git.date" description="Store date of last commit ${repository.rawdate}" if="git.present">
+		<exec executable="git" outputproperty="git.date" failifexecutionfails="false">
+			<arg value="show"/>
+			<arg value="-s"/>
+			<arg value="--format=%ct"/>
+		</exec>
+		<condition property="repository.rawdate" value="${git.date}" else="unknown">
+			<and>
+				<isset property="git.date"/>
+				<length string="${git.date}" trim="yes" length="0" when="greater"/>
+			</and>
+		</condition>
+		<echo level="info">Got last commit date</echo>
+	</target>
+
+	<target name="date.date" depends="git.date" description="Format date of last commit in ${repository.date}">
+		<exec executable="date" outputproperty="date.date" failifexecutionfails="false">
+			<arg value="-d"/>
+			<arg value="@${repository.rawdate}"/>
+			<arg value="+%Y%m%d"/>
+		</exec>
+		<condition property="repository.date" value="${date.date}" else="unknown">
+			<and>
+				<isset property="date.date"/>
+				<length string="${date.date}" trim="yes" length="0" when="greater"/>
+			</and>
+		</condition>
+		<echo level="info">Formatted last commit date</echo>
+	</target>
+
+	<!-- Finally, inject all this in the parser -->
+	<target name="backup-parser" description="Backup parse-commented.awk">
+		<copy file="src/com/mobileread/ixtab/kindlelauncher/resources/parse-commented.awk" tofile="src/com/mobileread/ixtab/kindlelauncher/resources/parse-commented.awk.tpl" overwrite="yes"/>
+	</target>
+
+	<target name="inject-git.revision" depends="git.revision, date.date, backup-parser" description="Inject git revision in parse-commented.awk">
+		<copy file="src/com/mobileread/ixtab/kindlelauncher/resources/parse-commented.awk.tpl" tofile="src/com/mobileread/ixtab/kindlelauncher/resources/parse-commented.awk" overwrite="yes">
+			<filterchain>
+				<replacetokens>
+					<token key="repository.version" value="${repository.version}"/>
+					<token key="repository.date" value="${repository.date}"/>
+				</replacetokens>
+			</filterchain>
+		</copy>
+	</target>
+
+	<target name="restore-parser" description="Restore parse-commented.awk">
+		<copy file="src/com/mobileread/ixtab/kindlelauncher/resources/parse-commented.awk.tpl" tofile="src/com/mobileread/ixtab/kindlelauncher/resources/parse-commented.awk" overwrite="yes"/>
+		<delete file="src/com/mobileread/ixtab/kindlelauncher/resources/parse-commented.awk.tpl"/>
+	</target>
+
+	<!-- Build a ChangeLog from git -->
+	<target name="git.changelog" description="Build a ChangeLog from git" if="git.present">
+		<exec executable="git" output="src/com/mobileread/ixtab/kindlelauncher/resources/dist/ChangeLog.txt" failifexecutionfails="false">
+			<arg value="log"/>
+			<arg value="--stat"/>
+			<arg value="--graph"/>
+		</exec>
+		<echo level="info">Built ChangeLog</echo>
+	</target>
+
+	<!-- Ship it! -->
+	<target name="dist" depends="build, clean">
+		<exec executable="src/com/mobileread/ixtab/kindlelauncher/resources/tool/shipit.sh" failifexecutionfails="false" errorproperty="">
+			<arg value="${repository.version}"/>
+			<arg value="${repository.date}"/>
+		</exec>
+
+		<antcall target="cleanup"/>
+
+		<echo level="info">
+			Finished building version ${repository.version} (${repository.date}) :)
+		</echo>
+	</target>
+</project>
