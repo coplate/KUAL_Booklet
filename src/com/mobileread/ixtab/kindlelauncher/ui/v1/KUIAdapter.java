@@ -1,18 +1,18 @@
 package com.mobileread.ixtab.kindlelauncher.ui.v1;
 
+import java.awt.Button;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Label;
 import java.awt.LayoutManager;
+import java.awt.Panel;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 
-import com.amazon.kindle.kindlet.KindletContext;
-import com.amazon.kindle.kindlet.event.KindleKeyCodes;
-import com.amazon.kindle.kindlet.ui.KButton;
-import com.amazon.kindle.kindlet.ui.KLabel;
-import com.amazon.kindle.kindlet.ui.KPanel;
+//import com.amazon.kindle.kindlet.event.KindleKeyCodes;
 import com.mobileread.ixtab.kindlelauncher.ui.UIAdapter;
+import com.amazon.kindle.booklet.BookletContext;
 import com.mobileread.ixtab.kindlelauncher.resources.KualEntry;
 
 public class KUIAdapter extends UIAdapter {
@@ -36,7 +36,7 @@ public class KUIAdapter extends UIAdapter {
 	}
 
 	public Container newPanel(LayoutManager layout) {
-		return layout != null ? new KPanel(layout) : new KPanel();
+		return layout != null ? new Panel(layout) : new Panel();
 	}
 
 	public Component newLabel(String text) {
@@ -44,7 +44,7 @@ public class KUIAdapter extends UIAdapter {
 	}
 
 	public Component newButton(String text, ActionListener listener, KeyListener keyListener, KualEntry kualEntry) {
-		KButton button = new KualButton(text, kualEntry);
+		Button button = new KualButton(text, kualEntry);
 		if (listener != null) {
 			button.setName(text);
 			button.addActionListener(listener);
@@ -55,20 +55,20 @@ public class KUIAdapter extends UIAdapter {
 	}
 
 	public void setText(Component component, String text) {
-		if (component instanceof KLabel) {
-			((KLabel) component).setText(text);
+		if (component instanceof Label) {
+			((Label) component).setText(text);
 			component.repaint();
 		}
-		if (component instanceof KButton) {
-			((KButton) component).setLabel(text);
+		if (component instanceof Button) {
+			((Button) component).setLabel(text);
 		}
 	}
 
-	public void suicide(KindletContext context) {
-		int code = KindleKeyCodes.VK_BACK;
+	public void suicide(BookletContext context) {
+		int code =61442;
 		//code = 61442;
-		KeyEvent k = new KeyEvent(context.getRootContainer(), KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, code, (char)0);
-		context.getRootContainer().dispatchEvent(k);
+		KeyEvent k = new KeyEvent(context.bcq(), KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, code, (char)0);
+		context.bcq().dispatchEvent(k);
 	}
 
 	public int getDefaultPageSize() {

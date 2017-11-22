@@ -1,5 +1,8 @@
 package com.mobileread.ixtab.kindlelauncher;
 
+import ixtab.jailbreak.Jailbreak;
+import ixtab.jailbreak.SuicidalKindlet;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -10,6 +13,9 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -19,16 +25,14 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.lang.reflect.Method;
 
-import com.amazon.kindle.booklet.AbstractBooklet;
-import com.amazon.kindle.booklet.BookletContext;
+import com.amazon.kindle.kindlet.KindletContext;
+import com.amazon.kindle.kindlet.event.KindleKeyCodes;
 import com.mobileread.ixtab.kindlelauncher.resources.KualEntry;
 import com.mobileread.ixtab.kindlelauncher.resources.KualLog;
 import com.mobileread.ixtab.kindlelauncher.resources.KualMenu;
@@ -39,7 +43,7 @@ import com.mobileread.ixtab.kindlelauncher.timer.TimerAdapter;
 import com.mobileread.ixtab.kindlelauncher.ui.GapComponent;
 import com.mobileread.ixtab.kindlelauncher.ui.UIAdapter;
 
-public class KualBooklet extends AbstractBooklet implements ActionListener {
+public class KualKindlet extends SuicidalKindlet implements ActionListener {
 
 	public static final String RESOURCE_PARSER_SCRIPT = "parse.awk"; // "parse.sh";
 	private static final String EXEC_PREFIX_PARSE = "klauncher_parse-";
@@ -49,6 +53,8 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 	private static final long serialVersionUID = 1L;
 	// Handle the privilege hint prefix...
 	private static String PRIVILEGE_HINT_PREFIX = "?";
+
+	private static final int VK_KEYBOARD = 17; /* K4: We should be using getKeyboardKeyCode() here, but it's KDK 1.3 only */
 
 	private static final int PAGING_PREVIOUS = -1;
 	private static final int PAGING_NEXT = 1;
@@ -60,27 +66,93 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 	// . used in getEntriesCount()
 	private final ArrayList viewList = new ArrayList();
 
+	private KindletContext context;
 	private boolean started = false;
 	private String commandToRunOnExit = null;
 	private String dirToChangeToOnExit = null;
 
-	final String CROSS = "\u00D7"; // Ã— - match parser script
-	final String ATTN = "\u25CF"; // â—� - match parser script
-	final String RARROW = "\u25B6"; // â–¶
-	final String LARROW = "\u25C0"; // â—€
-	final String UARROW = "\u25B2"; // â–²
-	final String BULLET = "\u25AA"; // â–ª
+	final String CROSS = "\u00D7"; // × - match parser script
+	final String ATTN = "\u25CF"; // ● - match parser script
+	final String RARROW = "\u25B6"; // ▶
+	final String LARROW = "\u25C0"; // ◀
+	final String UARROW = "\u25B2"; // ▲
+	final String BULLET = "\u25AA"; // ▪
 	final String PATH_SEP = "/";
 
-	private Container rootContainer = null;
-
+	private KeyListener keyListener = new KeyAdapter() {
+		public void keyPressed(KeyEvent e) {
+			switch (e.getKeyCode()) {
+			case KindleKeyCodes.VK_RIGHT_HAND_SIDE_TURN_PAGE:
+			case KindleKeyCodes.VK_LEFT_HAND_SIDE_TURN_PAGE:
+				handlePaging(PAGING_NEXT, depth, true);
+				break;
+			case KindleKeyCodes.VK_TURN_PAGE_BACK: /* 61450 */
+			case 61452: /* K4: KindleKeyCodes.VK_LEFT_HAND_SIDE_TURN_PAGE_BACK in KDK 1.3. See also *DistinctTurnPageBackKeyCodes*() */
+				handleLevel(LEVEL_PREVIOUS, true);
+				break;
+			case KeyEvent.VK_1:
+			case KeyEvent.VK_Q:
+				handleButtonSelect(1, true);
+				break;
+			case KeyEvent.VK_2:
+			case KeyEvent.VK_W:
+				handleButtonSelect(2, true);
+				break;
+			case KeyEvent.VK_3:
+			case KeyEvent.VK_E:
+				handleButtonSelect(3, true);
+				break;
+			case KeyEvent.VK_4:
+			case KeyEvent.VK_R:
+				handleButtonSelect(4, true);
+				break;
+			case KeyEvent.VK_5:
+			case KeyEvent.VK_T:
+				handleButtonSelect(5, true);
+				break;
+			case KeyEvent.VK_6:
+			case KeyEvent.VK_Y:
+				handleButtonSelect(6, true);
+				break;
+			case KeyEvent.VK_7:
+			case KeyEvent.VK_U:
+				handleButtonSelect(7, true);
+				break;
+			case KeyEvent.VK_8:
+			case KeyEvent.VK_I:
+				handleButtonSelect(8, true);
+				break;
+			case KeyEvent.VK_9:
+			case KeyEvent.VK_O:
+				handleButtonSelect(9, true);
+				break;
+			case KeyEvent.VK_0:
+			case KeyEvent.VK_P:
+				handleButtonSelect(10, true);
+				break;
+			case KeyEvent.VK_ENTER:
+			case KeyEvent.VK_SPACE:
+				handleLauncherButton((Component) e.getSource(), depth);
+				break;
+			case KindleKeyCodes.VK_TEXT:
+			case VK_KEYBOARD:
+				handleButtonSelect(-1, false);
+				break;
+			case KindleKeyCodes.VK_MENU:
+				handleButtonSelect(99, false);
+				break;
+			}
+			// Always check for news, because apparently we bypass actionPerformed...
+			new MailboxProcessor(kualMenu, '1', new ReloadMenuFromCache(), 0, 0, 0);
+		}
+	};
 
 	private Container entriesPanel;
 	private Component status = null;
 	private Component nextPageButton = getUI().newButton("  " + RARROW + "  ",
-			this, null, null);
+			this, keyListener, null);
 	private Component prevPageButton = getUI().newButton("  " + UARROW + "  ",
-			this, null, null);
+			this, keyListener, null);
 	private Component breadcrumb;
 
 	private KualEntry toTopEntry;
@@ -93,73 +165,16 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 			null, null, null }; // 10
 	private int depth = 0;
 
-	public KualBooklet() {
-		//new KualLog().append("KualBooklet");
+	protected Jailbreak instantiateJailbreak() {
+		return new LauncherKindletJailbreak();
 	}
 
-	// Because this got obfuscated...
-	private Container getUIContainer() {
-		// Check our cached value, first
-		if (rootContainer != null) {
-			return rootContainer;
-		} else {
-			try {
-				Method getUIContainer = null;
-
-				// Should be the only method returning a Container in BookletContext...
-				Method[] methods = BookletContext.class.getDeclaredMethods();
-				for (int i = 0; i < methods.length; i++) {
-					if (methods[i].getReturnType() == Container.class) {
-						// Double check that it takes no arguments, too...
-						Class[] params = methods[i].getParameterTypes();
-						if (params.length == 0) {
-							getUIContainer = methods[i];
-							break;
-						}
-					}
-				}
-
-				if (getUIContainer != null) {
-					//new KualLog().append("Found getUIContainer method as " + getUIContainer.toString());
-					rootContainer = (Container) getUIContainer.invoke(aBJ(), null);
-					return rootContainer;
-				}
-				else {
-					// Kablooey!
-					new KualLog().append("Failed to find getUIContainer method, abort!");
-					suicide(aBJ());
-					return null;
-				}
-			} catch (Throwable t) {
-				throw new RuntimeException(t.toString());
-			}
-		}
+	public void onCreate(KindletContext context) {
+		super.onCreate(context);
+		this.context = context;
 	}
 
-	private void suicide(BookletContext context) {
-		try {
-			// Send a BACKWARD lipc event to background the app (-> stop())
-			// NOTE: This has a few side-effects, since we effectively skip create & longStart
-			//	 on subsequent start-ups, and we (mostly) never go to destroy().
-			// NOTE: Incidentally, this is roughly what the [Home] button does on the Touch, so, for the same reason,
-			//	 it's recommended not to tap Home on that device ;).
-			// NOTE: Setting the unloadPolicy to unloadOnPause in the app's appreg properties takes care of that,
-			//	 stop() then *always* leads to destroy() :).
-			//Runtime.getRuntime().exec("lipc-set-prop com.lab126.appmgrd backward 0");
-			// Send a STOP lipc event to exit the app (-> stop() -> destroy()). More closely mirrors the Kindlet lifecycle.
-			Runtime.getRuntime().exec("lipc-set-prop com.lab126.appmgrd stop app://com.mobileread.ixtab.kindlelauncher");
-		} catch (IOException e) {
-			new KualLog().append(e.toString());
-		}
-	}
-
-	public void create(BookletContext context) {
-		//new KualLog().append("create(" + context + ")");
-
-		super.a(context);
-	}
-
-	public void start(URI contentURI) {
+	public void onStart() {
 		/*
 		 * This method might be called multiple times, but we only need to
 		 * initialize once. See Kindlet lifecycle diagram:
@@ -168,19 +183,23 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 
 		// Go as quickly as possible through here.
 		// The kindlet is given 5000 ms maximum to start.
-		// NOTE: We're actually granted more leniency as a Booklet, but this is still good practice ;).
-		//new KualLog().append("start(" + contentURI + ")");
 
 		if (started) {
 			return;
 		}
-		super.b(contentURI);
+		super.onStart();
 		started = true;
+
+		String error = getJailbreakError();
+		if (error != null) {
+			displayErrorMessage(error);
+			return;
+		}
 
 		// postpone longer initialization for quicker return
 		Runnable runnable = new Runnable() {
 			public void run() {
-				KualBooklet.this.longStart();
+				KualKindlet.this.longStart();
 			}
 		};
 		EventQueue.invokeLater(runnable);
@@ -190,23 +209,17 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 		/*
 		 * High-level description of KUAL flow
 		 *
-		 * 1. booklet: spawn the parser then block waiting for input from the
-		 *    parser.
-		 * 2. parser: send the booklet cached data so the booklet can
-		 *    quickly move on to initialize the UI.
-		 * 3. booklet: initialize UI and display the menu.
-		 * 4. booklet: schedule a 20-time-repeat 500ms
-		 *    timer task which checks for messages from the parser.
-		 * 5. parser:
-		 *    (while the booklet is initializing the UI) parse menu files and
-		 *    refresh the cache.
-		 * 6: parser: if the fresh cache differs from the
-		 *    cache sent in step 2 then post the booklet a message.
-		 * 7: parser: exit.
-		 * 8: booklet: if the timer found a message in the mailbox update the
-		 *    menu from the fresh cache and re-display UI.
-		 * 9: booklet: loop: wait
-		 *    for user interaction; handle interaction.
+		 * 1. kindlet: spawn the parser then block waiting for input from the
+		 * parser. 2. parser: send the kindlet cached data so the kindlet can
+		 * quickly move on to initialize the UI. 3. kindlet: initialize UI and
+		 * display the menu. 4. kindlet: schedule a 20-time-repeat 500ms
+		 * timer task which checks for messages from the parser. 5. parser:
+		 * (while the kindlet is initializing the UI) parse menu files and
+		 * refresh the cache. 6: parser: if the fresh cache differs from the
+		 * cache sent in step 2 then post the kindlet a message 7: parser: exit
+		 * 8: kindlet: if the timer found a message in the mailbox update the
+		 * menu from the fresh cache and re-display UI. 9: kindlet: loop: wait
+		 * for user interaction; handle interaction.
 		 */
 		try {
 			initializeState(); // step 1
@@ -257,7 +270,7 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 	}
 
 	private void initializeUI() {
-		Container root = getUIContainer();
+		Container root = context.getRootContainer();
 		int gap = getUI().getGap();
 		root.removeAll();
 
@@ -304,9 +317,9 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 		breadcrumb = getUI().newLabel(PATH_SEP);
 		// Same deal with those default buttons...
 		toTopEntry = new KualEntry(1, PATH_SEP);
-		toTopButton = getUI().newButton(PATH_SEP, this, null, toTopEntry);
+		toTopButton = getUI().newButton(PATH_SEP, this, keyListener, toTopEntry);
 		quitEntry = new KualEntry(2, CROSS + " Quit");
-		quitButton = getUI().newButton(CROSS + " Quit", this, null, quitEntry);
+		quitButton = getUI().newButton(CROSS + " Quit", this, keyListener, quitEntry);
 
 		root.setLayout(new BorderLayout(gap, gap));
 		Container main = getUI().newPanel(new BorderLayout(gap, gap));
@@ -393,7 +406,7 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 	}
 
 	private void displayErrorMessage(String error) {
-		Container root = getUIContainer();
+		Container root = context.getRootContainer();
 		root.removeAll();
 
 		Component message = getUI().newLabel(error);
@@ -438,6 +451,16 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 				}
 			}
 		}
+	}
+
+	private String getJailbreakError() {
+		if (!jailbreak.isAvailable()) {
+			return "Mobileread Kindlet Kit is not installed";
+		}
+		if (!jailbreak.isEnabled()) {
+			return "MKK could not enable Kindlet Jailbreak";
+		}
+		return null;
 	}
 
 	public void actionPerformed(ActionEvent e) {
@@ -581,7 +604,7 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 				if (null == ke) {
 					button = 0 == level ? quitButton : toTopButton;
 				} else {
-					button = getUI().newButton(ke.label, this, null, ke); // then
+					button = getUI().newButton(ke.label, this, keyListener, ke); // then
 																					// getUI().getKualEntry(button)
 																					// =>
 																					// ke
@@ -631,8 +654,8 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 		// just to be on the safe side
 		entriesPanel.invalidate();
 		entriesPanel.repaint();
-		getUIContainer().invalidate();
-		getUIContainer().repaint();
+		context.getRootContainer().invalidate();
+		context.getRootContainer().repaint();
 
 		// This is for 5-way controller devices.
 		// It is essential to request focus _after_ the button has been
@@ -647,7 +670,7 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 				.size();
 	}
 
-	private static int onStartPageSize = -1; // tracks start() size, so
+	private static int onStartPageSize = -1; // tracks onStart() size, so
 												// ReloadMenuFromCache can't
 												// interfere
 
@@ -730,7 +753,7 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 						// suicide
 						commandToRunOnExit = ke.action;
 						dirToChangeToOnExit = ke.dir;
-						suicide(aBJ());
+						getUI().suicide(context);
 					} else {
 						// survive
 						execute(ke.action, ke.dir, true);
@@ -760,6 +783,11 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 			// JSON "refresh":true - refresh and reload the menu
 			// Default value for afterParser, cf. refreshMenu().
 			long afterParser = 750L;
+			// Add 750ms for legacy devices with slower CPU
+			String model = kualMenu.getModel();
+			if ("K2".equals(model) || "DX".equals(model) || "DXG".equals(model) || "K3".equals(model)) {
+				afterParser += 750L;
+			}
 			// If we showed a custom status message, don't overwrite it!
 			if (internalStatus) {
 				refreshMenu(250L, afterParser, null);
@@ -800,46 +828,40 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 		}
 	}
 
-	public void stop() {
+	protected void onStop() {
 		/*
-		 * This should really be run on the destroy() method, because stop()
-		 * might be invoked multiple times. But in the destroy() method, it
+		 * This should really be run on the onDestroy() method, because onStop()
+		 * might be invoked multiple times. But in the onDestroy() method, it
 		 * just won't work. Might be related with what the life cycle
 		 * documentation says about not holding files open etc. after stop() was
 		 * called. Anyway: seems to work, since we only set commandToRunOnExit at
 		 * very specific times, where we'll always exit right after, so we can't really
 		 * fire a random command during an unexpected stop event ;).
 		 */
-		//new KualLog().append("stop()");
-
 		if (commandToRunOnExit != null) {
 			try {
 				execute(commandToRunOnExit, dirToChangeToOnExit, true);
-				// NOTE: This can be a bit racey with destroy(),
-				//	 so sleep for a teeny tiny bit so that our execute() call actually goes through...
+				// FIXME: This is apparently sometimes (?) a bit racy with onDestroy(), so sleep for a teeny tiny bit...
 				Thread.sleep(175);
 			} catch (Exception ignored) {
 				// can't do much, really. Too late for that :-)
 			}
 			commandToRunOnExit = dirToChangeToOnExit = null;
 		}
-
-		super.stop();
+		super.onStop();
 	}
 
-	public void destroy() {
-		//new KualLog().append("destroy()");
+	public void onDestroy() {
 		// Try to cleanup behind us on exit...
 		try {
-			// NOTE: This can be a bit racey with stop(),
-			//	 so sleep for a tiny bit so our commandToRunOnExit actually has a chance to run...
+			// FIXME: This is apparently sometimes (?) a bit racy with onStop(), so sleep for a tiny bit...
 			Thread.sleep(175);
 			cleanupTemporaryDirectory();
 		} catch (Exception ignored) {
 			// Avoid the framework shouting at us...
 		}
 
-		super.destroy();
+		super.onDestroy();
 	}
 
 	private File createLauncherScript(String cmd, boolean background,

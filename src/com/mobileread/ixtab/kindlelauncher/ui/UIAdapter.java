@@ -6,7 +6,7 @@ import java.awt.LayoutManager;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyListener;
 
-import com.amazon.kindle.kindlet.KindletContext;
+import com.amazon.kindle.booklet.BookletContext;
 import com.mobileread.ixtab.kindlelauncher.resources.KualEntry;
 import com.mobileread.ixtab.kindlelauncher.ui.v1.KUIAdapter;
 import com.mobileread.ixtab.kindlelauncher.ui.v2.JUIAdapter;
@@ -54,7 +54,7 @@ public abstract class UIAdapter {
 
 	public abstract void setText(Component component, String text);
 
-	public abstract void suicide(KindletContext context);
+	public abstract void suicide(BookletContext context);
 
 	public abstract int getDefaultPageSize();
 
