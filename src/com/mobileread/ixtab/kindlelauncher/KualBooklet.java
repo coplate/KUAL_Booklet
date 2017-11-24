@@ -1,4 +1,3 @@
-
 package com.mobileread.ixtab.kindlelauncher;
 
 import java.io.IOException;
@@ -18,7 +17,7 @@ public class KualBooklet extends AbstractBooklet {
 				e.printStackTrace();
 			}
 			try {
-				String[] cmd = new String[] {"/bin/sh", "lipc-set-prop", "com.lab126.appmgrd", "start", "app://com.mobileread.ixtab.kindlelauncher"};
+				String[] cmd = new String[] {"/usr/bin/lipc-set-prop", "com.lab126.appmgrd", "stop", "app://com.mobileread.ixtab.kindlelauncher"};
 				Runtime.getRuntime().exec(cmd);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
