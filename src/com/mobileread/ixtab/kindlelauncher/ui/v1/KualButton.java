@@ -1,13 +1,13 @@
 package com.mobileread.ixtab.kindlelauncher.ui.v1;
 
-import java.awt.Button;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics;
 
+import com.amazon.kindle.kindlet.ui.KButton;
 import com.mobileread.ixtab.kindlelauncher.resources.KualEntry;
 
-public class KualButton extends Button implements KualPaintable {
+public class KualButton extends KButton implements KualPaintable {
 
 	private static final long serialVersionUID = 1L;
 

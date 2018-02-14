@@ -3,10 +3,10 @@ package com.mobileread.ixtab.kindlelauncher.ui.v1;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics;
-import java.awt.Label;
 
+import com.amazon.kindle.kindlet.ui.KLabel;
 
-public class KualLabel extends Label implements KualPaintable {
+public class KualLabel extends KLabel implements KualPaintable {
 
 	private static final long serialVersionUID = 1L;
 

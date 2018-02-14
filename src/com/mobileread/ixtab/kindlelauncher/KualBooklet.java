@@ -1,5 +1,5 @@
-/*** Eclipse Class Decompiler plugin, copyright (c) 2016 Chen Chao (cnfree2000@hotmail.com) ***/
 package com.mobileread.ixtab.kindlelauncher;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -25,14 +25,10 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-
 
 import com.amazon.kindle.booklet.AbstractBooklet;
 import com.amazon.kindle.booklet.BookletContext;
-
-
 import com.mobileread.ixtab.kindlelauncher.resources.KualEntry;
 import com.mobileread.ixtab.kindlelauncher.resources.KualLog;
 import com.mobileread.ixtab.kindlelauncher.resources.KualMenu;
@@ -68,12 +64,12 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 	private String commandToRunOnExit = null;
 	private String dirToChangeToOnExit = null;
 
-	final String CROSS = "\u00D7"; //  - match parser script
-	final String ATTN = "\u25CF"; //  - match parser script
-	final String RARROW = "\u25B6"; // 
-	final String LARROW = "\u25C0"; // 
-	final String UARROW = "\u25B2"; // 
-	final String BULLET = "\u25AA"; // 
+	final String CROSS = "\u00D7"; // × - match parser script
+	final String ATTN = "\u25CF"; // ● - match parser script
+	final String RARROW = "\u25B6"; // ▶
+	final String LARROW = "\u25C0"; // ◀
+	final String UARROW = "\u25B2"; // ▲
+	final String BULLET = "\u25AA"; // ▪
 	final String PATH_SEP = "/";
 
 	private Container rootContainer = null;
@@ -99,55 +95,8 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 
 	public KualBooklet() {
 		//new KualLog().append("KualBooklet");
-		new java.util.Timer().schedule( 
-		        new java.util.TimerTask() {
-		            public void run() {
-		               KualBooklet.this.longStart();
-		            }
-		        }, 
-		        1000 
-		);
-		
 	}
 
-	private BookletContext obGetBookletContext(int j){
-		BookletContext bc = null;
-		Method[] methods = AbstractBooklet.class.getDeclaredMethods();
-		for (int i = 0; i < methods.length; i++) {
-			if (methods[i].getReturnType() == BookletContext.class) {
-				// Double check that it takes no arguments, too...
-				System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
-				Class[] params = methods[i].getParameterTypes();
-				System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
-				if (params.length == 0) {
-					try {
-						System.out.println(i);
-						System.out.println(methods[i]);
-						System.out.println(methods[i].getReturnType().getName());
-						System.out.println(methods[i].getName());
-						System.out.println(methods[i].getParameterCount());
-						System.out.println(this);
-						System.out.println("---------------------------------------");
-						bc = (BookletContext) methods[i].invoke(this, null);
-						System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
-						System.out.println(bc);
-					} catch (IllegalAccessException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					break;
-				}
-			}
-		}
-		System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
-		return bc;
-	}
 	// Because this got obfuscated...
 	private Container getUIContainer() {
 		// Check our cached value, first
@@ -157,7 +106,6 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 			try {
 				Method getUIContainer = null;
 
-				System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
 				// Should be the only method returning a Container in BookletContext...
 				Method[] methods = BookletContext.class.getDeclaredMethods();
 				for (int i = 0; i < methods.length; i++) {
@@ -166,27 +114,20 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 						Class[] params = methods[i].getParameterTypes();
 						if (params.length == 0) {
 							getUIContainer = methods[i];
-							System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
 							break;
 						}
 					}
 				}
-				
 
 				if (getUIContainer != null) {
-					
-					System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
 					//new KualLog().append("Found getUIContainer method as " + getUIContainer.toString());
-					BookletContext bc = obGetBookletContext(1);
-					System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
-					rootContainer = (Container) getUIContainer.invoke(bc, null);
-					System.out.println("OOOOOOOOOOOOOOOOOOOOOOOOOOO");
+					rootContainer = (Container) getUIContainer.invoke(getBookletContext(), null);
 					return rootContainer;
 				}
 				else {
 					// Kablooey!
 					new KualLog().append("Failed to find getUIContainer method, abort!");
-					suicide(obGetBookletContext(2));
+					suicide(getBookletContext());
 					return null;
 				}
 			} catch (Throwable t) {
@@ -212,38 +153,38 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 		}
 	}
 
-//	public void create(BookletContext context) {
-//		//new KualLog().append("create(" + context + ")");
-//
-//		super.create(context);
-//	}
-//
-//	public void start(URI contentURI) {
-//		/*
-//		 * This method might be called multiple times, but we only need to
-//		 * initialize once. See Kindlet lifecycle diagram:
-//		 */
-//		// https://kdk-javadocs.s3.amazonaws.com/2.0/com/amazon/kindle/kindlet/Kindlet.html
-//
-//		// Go as quickly as possible through here.
-//		// The kindlet is given 5000 ms maximum to start.
-//		// NOTE: We're actually granted more leniency as a Booklet, but this is still good practice ;).
-//		//new KualLog().append("start(" + contentURI + ")");
-//
-//		if (started) {
-//			return;
-//		}
-//		super.start(contentURI);
-//		started = true;
-//
-//		// postpone longer initialization for quicker return
-//		Runnable runnable = new Runnable() {
-//			public void run() {
-//				KualBooklet.this.longStart();
-//			}
-//		};
-//		EventQueue.invokeLater(runnable);
-//	}
+	public void create(BookletContext context) {
+		//new KualLog().append("create(" + context + ")");
+
+		super.create(context);
+	}
+
+	public void start(URI contentURI) {
+		/*
+		 * This method might be called multiple times, but we only need to
+		 * initialize once. See Kindlet lifecycle diagram:
+		 */
+		// https://kdk-javadocs.s3.amazonaws.com/2.0/com/amazon/kindle/kindlet/Kindlet.html
+
+		// Go as quickly as possible through here.
+		// The kindlet is given 5000 ms maximum to start.
+		// NOTE: We're actually granted more leniency as a Booklet, but this is still good practice ;).
+		//new KualLog().append("start(" + contentURI + ")");
+
+		if (started) {
+			return;
+		}
+		super.start(contentURI);
+		started = true;
+
+		// postpone longer initialization for quicker return
+		Runnable runnable = new Runnable() {
+			public void run() {
+				KualBooklet.this.longStart();
+			}
+		};
+		EventQueue.invokeLater(runnable);
+	}
 
 	private void longStart() {
 		/*
@@ -789,7 +730,7 @@ public class KualBooklet extends AbstractBooklet implements ActionListener {
 						// suicide
 						commandToRunOnExit = ke.action;
 						dirToChangeToOnExit = ke.dir;
-						suicide(obGetBookletContext(3));
+						suicide(getBookletContext());
 					} else {
 						// survive
 						execute(ke.action, ke.dir, true);
