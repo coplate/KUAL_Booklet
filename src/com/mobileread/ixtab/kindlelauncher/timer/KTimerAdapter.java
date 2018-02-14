@@ -1,15 +1,18 @@
 package com.mobileread.ixtab.kindlelauncher.timer;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 import com.mobileread.ixtab.kindlelauncher.timer.TimerAdapter;
 
 public class KTimerAdapter extends TimerAdapter {
 
 	public Object newTimer() {
-		return new com.amazon.kindle.kindlet.util.Timer();
+		return new Timer();
 	}
 
 	public Object newTimerTask(final Runnable runnable) {
-		return new com.amazon.kindle.kindlet.util.TimerTask() {
+		return new TimerTask() {
 			public void run() {
 				runnable.run();
 			}
@@ -17,13 +20,13 @@ public class KTimerAdapter extends TimerAdapter {
 	}
 
 	public void schedule(Object timerObject, Object timerTaskObject, long delay, long period) {
-		com.amazon.kindle.kindlet.util.Timer timer = (com.amazon.kindle.kindlet.util.Timer) timerObject;
-		com.amazon.kindle.kindlet.util.TimerTask timerTask = (com.amazon.kindle.kindlet.util.TimerTask) timerTaskObject;
+		Timer timer = (Timer) timerObject;
+		TimerTask timerTask = (TimerTask) timerTaskObject;
 		timer.schedule(timerTask, delay, period);
 	}
 
 	public void cancel(Object timerObject) {
-		com.amazon.kindle.kindlet.util.Timer timer = (com.amazon.kindle.kindlet.util.Timer) timerObject;
+		Timer timer = (Timer) timerObject;
 		timer.cancel();
 	}
 }

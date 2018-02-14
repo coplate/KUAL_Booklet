@@ -11,6 +11,7 @@
 
 	<path id="classpath.lib">
 		<fileset dir="lib" includes="**/*.jar"/>
+		<fileset dir="D:\Ninite\kndle-jb\binary\oasis9\update_kindle_all_new_oasis_5.9.2\rootfs_dir\opt\amazon\ebook\lib" includes="**/*.jar"/>
 	</path>
 
 	<target name="clean">
@@ -23,9 +24,10 @@
 		<mkdir dir="dist"/>
 	</target>
 
-	<target name="compile" depends="prepare, strip-parser">
-		<javac source="1.4" target="1.4" includeantruntime="false" bootclasspathref="classpath.jdk14" classpathref="classpath.lib" srcdir="src" destdir="${build.dir}" debug="true" debuglevel="lines,vars,source">
-			<include name="**/*.java"/>
+	<target name="compile" depends="prepare">
+		<javac source="1.4" target="1.4" includeantruntime="false" classpathref="classpath.lib" srcdir="src" destdir="${build.dir}" debug="true" debuglevel="lines,vars,source">
+			<include name="com/mobileread/ixtab/**/*.java"/> 
+			 
 		</javac>
 	</target>
 
@@ -96,7 +98,7 @@
 		<antcall target="restore-parser"/>
 	</target>
 
-	<target name="build-booklet" depends="compile, git.changelog">
+	<target name="build-booklet" depends="compile">
 		<property name="file" value="${product.filename}Booklet.jar"/>
 		<delete file="${file}"/>
 		<jar destfile="${file}">
@@ -126,12 +128,12 @@
 			</fileset>
 		</jar>
 
-		<antcall target="restore-parser"/>
+		
 	</target>
 
 	<!-- Strip the parser -->
 	<target name="strip-parser" depends="inject-git.revision" description="Strip the parser">
-		<exec executable="src/com/mobileread/ixtab/kindlelauncher/resources/tool/stripit.sh" failifexecutionfails="true" failonerror="true" errorproperty=""/>
+		<exec executable="bash src/com/mobileread/ixtab/kindlelauncher/resources/tool/stripit.sh" failifexecutionfails="true" failonerror="true" errorproperty=""/>
 		<echo level="info">Built stripped parser awk script</echo>
 	</target>
 

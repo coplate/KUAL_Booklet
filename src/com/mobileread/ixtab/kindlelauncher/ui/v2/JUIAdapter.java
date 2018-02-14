@@ -11,8 +11,9 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-import com.amazon.kindle.kindlet.KindletContext;
+
 import com.mobileread.ixtab.kindlelauncher.ui.UIAdapter;
+import com.amazon.kindle.booklet.BookletContext;
 import com.mobileread.ixtab.kindlelauncher.resources.KualEntry;
 
 public class JUIAdapter extends UIAdapter {
@@ -59,7 +60,7 @@ public class JUIAdapter extends UIAdapter {
 		}
 	}
 
-	public void suicide(KindletContext context) {
+	public void suicide(BookletContext context) {
 		try {
 			// Until something better turns up...
 			Runtime.getRuntime()
